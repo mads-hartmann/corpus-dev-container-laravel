@@ -1,0 +1,28 @@
+// The Dev Container format allows you to configure your environment. At the heart of it
+// is a Docker image or Dockerfile which controls the tools available in your environment.
+//
+// See https://aka.ms/devcontainer.json for more information.
+{
+	"name": "Laravel",
+	// PHP 8.4 base image (composer.lock pins Symfony 8.1 requiring php >=8.4.1) and bundles Composer.
+	// Built from a Dockerfile to add the pcntl extension required by laravel/pail.
+	"build": {
+		"context": ".",
+		"dockerfile": "Dockerfile"
+	},
+	"features": {
+		// Node + npm for the Vite/Tailwind frontend build.
+		"ghcr.io/devcontainers/features/node": {}
+	},
+	"forwardPorts": [8000, 5173],
+	"portsAttributes": {
+		"8000": {
+			"label": "Laravel",
+			"onAutoForward": "notify"
+		},
+		"5173": {
+			"label": "Vite",
+			"onAutoForward": "silent"
+		}
+	}
+}
