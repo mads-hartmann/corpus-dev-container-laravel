@@ -1,0 +1,32 @@
+tasks:
+  setup:
+    name: Setup
+    description: Install PHP and Node dependencies, prepare the environment, and build assets.
+    command: |
+      composer install
+      [ -f .env ] || cp .env.example .env
+      php artisan key:generate
+      [ -f database/database.sqlite ] || touch database/database.sqlite
+      php artisan migrate --force
+      npm install
+      npm run build
+    triggeredBy:
+      - postDevcontainerStart
+
+services:
+  dev:
+    name: Dev Server
+    description: Run the Laravel server, queue worker, log viewer, and Vite dev server.
+    commands:
+      start: |
+        ./node_modules/.bin/concurrently -c "#93c5fd,#c4b5fd,#fb7185,#fdba74" \
+          "php artisan serve" \
+          "php artisan queue:listen --tries=1 --timeout=0" \
+          "php artisan pail --timeout=0" \
+          "npm run dev" \
+          --names=server,queue,logs,vite --kill-others
+      ready: |
+        until curl -sf http://localhost:8000 > /dev/null; do
+          echo "Waiting for port 8000..."
+          sleep 1
+        done

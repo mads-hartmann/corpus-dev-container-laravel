@@ -1,0 +1,23 @@
+// The Dev Container format allows you to configure your environment.
+// See https://aka.ms/devcontainer.json for more information.
+{
+	"name": "Laravel",
+	"build": {
+		"context": ".",
+		"dockerfile": "Dockerfile"
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/node": {}
+	},
+	"forwardPorts": [8000, 5173],
+	"portsAttributes": {
+		"8000": {
+			"label": "Laravel App",
+			"onAutoForward": "notify"
+		},
+		"5173": {
+			"label": "Vite Dev Server",
+			"onAutoForward": "silent"
+		}
+	}
+}
