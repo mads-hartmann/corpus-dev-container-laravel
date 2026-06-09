@@ -1,0 +1,21 @@
+{
+	"name": "Laravel",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+	"features": {
+		"ghcr.io/devcontainers/features/php": {
+			"version": "8.4"
+		},
+		"ghcr.io/devcontainers/features/node": {}
+	},
+	"forwardPorts": [8000, 5173],
+	"portsAttributes": {
+		"8000": {
+			"label": "Laravel",
+			"onAutoForward": "notify"
+		},
+		"5173": {
+			"label": "Vite",
+			"onAutoForward": "silent"
+		}
+	}
+}

@@ -1,0 +1,51 @@
+tasks:
+  installDeps:
+    name: Install dependencies
+    description: Install PHP and Node dependencies, prepare the environment file, generate the app key, create the SQLite database, and run migrations.
+    command: |
+      composer install
+      [ -f .env ] || cp .env.example .env
+      php artisan key:generate
+      [ -f database/database.sqlite ] || touch database/database.sqlite
+      php artisan migrate --force
+      npm install
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  build:
+    name: Build assets
+    description: Build front-end assets with Vite.
+    command: |
+      npm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  test:
+    name: Run tests
+    description: Run the PHPUnit test suite.
+    command: |
+      php artisan config:clear --ansi
+      php artisan test
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+services:
+  devServer:
+    name: Laravel dev server
+    description: Run the Laravel application server and the Vite dev server.
+    commands:
+      start: |
+        ona environment port open 8000 --dont-wait --admission creator_only --name "devServer"
+        ona environment port open 5173 --dont-wait --admission creator_only --name "vite"
+        node node_modules/concurrently/dist/bin/concurrently.js -c "#93c5fd,#fdba74" \
+          "php artisan serve --host 0.0.0.0 --port 8000" \
+          "npm run dev -- --host 0.0.0.0" \
+          --names=server,vite --kill-others
+      ready: |
+        curl -sf http://localhost:8000 > /dev/null
