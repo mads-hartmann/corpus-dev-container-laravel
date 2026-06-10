@@ -1,0 +1,18 @@
+{
+	"name": "Laravel",
+	"image": "mcr.microsoft.com/devcontainers/php:8.4",
+	"features": {
+		"ghcr.io/devcontainers/features/node": {}
+	},
+	"forwardPorts": [8000, 5173],
+	"portsAttributes": {
+		"8000": {
+			"label": "Laravel",
+			"onAutoForward": "notify"
+		},
+		"5173": {
+			"label": "Vite",
+			"onAutoForward": "silent"
+		}
+	}
+}
