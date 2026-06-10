@@ -1,0 +1,51 @@
+tasks:
+  installDeps:
+    name: Install dependencies
+    description: Install PHP and Node dependencies, prepare the environment, and build assets.
+    command: |
+      composer install
+      [ -f .env ] || cp .env.example .env
+      php artisan key:generate
+      [ -f database/database.sqlite ] || touch database/database.sqlite
+      php artisan migrate --force
+      npm install
+      npm run build
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  build:
+    name: Build assets
+    description: Build the front-end assets with Vite.
+    command: |
+      npm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  test:
+    name: Test
+    description: Run the PHPUnit test suite.
+    command: |
+      php artisan config:clear --ansi
+      php artisan test
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+services:
+  server:
+    name: Laravel server
+    description: Run the Laravel development server.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --dont-wait --admission creator_only --name "server"
+        php artisan serve --host 0.0.0.0 --port 8000
+      ready: |
+        curl -sf http://localhost:8000 > /dev/null
