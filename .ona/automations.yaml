@@ -58,6 +58,14 @@ services:
     commands:
       start: |
         ona environment port open 5173 --dont-wait --admission creator_only --name "Vite Dev Server"
+        # Resolve the public host Ona forwards 5173 to, so Vite accepts the
+        # Host header and emits asset/HMR URLs the browser can actually reach.
+        until ONA_VITE_HOST="$(ona environment port get 5173 -f URL 2>/dev/null | cut -c 9- | sed 's:/*$::')" && [ -n "$ONA_VITE_HOST" ]; do
+          echo "Waiting for forwarded host for port 5173..."
+          sleep 1
+        done
+        export ONA_VITE_HOST
+        echo "Vite allowed host: $ONA_VITE_HOST"
         npm run dev -- --host 0.0.0.0
       ready: |
         curl -s -o /dev/null http://localhost:5173
