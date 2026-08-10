@@ -1,0 +1,55 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    description: Install PHP and JavaScript dependencies and initialize the local SQLite application.
+    command: |
+      composer install --no-interaction
+      test -f .env || cp .env.example .env
+      test -f database/database.sqlite || touch database/database.sqlite
+      grep -qE '^APP_KEY=.+$' .env || php artisan key:generate --no-interaction
+      php artisan migrate --force --no-interaction
+      npm install --ignore-scripts
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  build-assets:
+    name: Build assets
+    description: Build the production frontend assets with Vite.
+    command: npm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+
+  test:
+    name: Run tests
+    description: Run the Laravel test suite.
+    command: composer test
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+
+services:
+  laravel-development-server:
+    name: Laravel development server
+    description: Run Laravel, its queue worker and log viewer, and the Vite development server.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel development server"
+        ona environment port open 5173 --admission creator_only --name "Laravel development server"
+        export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        npx concurrently -c "#93c5fd,#c4b5fd,#fb7185,#fdba74" \
+          "php artisan serve --host=0.0.0.0 --port=8000" \
+          "php artisan queue:listen --tries=1 --timeout=0" \
+          "php artisan pail --timeout=0" \
+          "npm run dev -- --host 0.0.0.0" \
+          --names=server,queue,logs,vite --kill-others
+      ready: |
+        curl -fsS http://localhost:8000 >/dev/null
+        curl -fsS http://localhost:5173/@vite/client >/dev/null
