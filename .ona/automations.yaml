@@ -35,7 +35,7 @@ tasks:
 services:
   laravel-development-server:
     name: Laravel development server
-    description: Run Laravel, its queue worker and log viewer, and the Vite development server.
+    description: Run Laravel, its queue worker, and the Vite development server.
     triggeredBy:
       - manual
       - postEnvironmentStart
@@ -44,20 +44,18 @@ services:
         ona environment port open 8000 --admission creator_only --name "Laravel development server"
         ona environment port open 5173 --admission creator_only --name "Laravel development server"
         export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$(ona environment port get 5173 -f URL | cut -c 9-)"
-        php artisan serve --host=0.0.0.0 --port=8000 &
+        setsid php artisan serve --host=0.0.0.0 --port=8000 &
         server_pid=$!
-        php artisan queue:listen --tries=1 --timeout=0 &
+        setsid php artisan queue:listen --tries=1 --timeout=0 &
         queue_pid=$!
-        php artisan pail --timeout=0 &
-        logs_pid=$!
-        npm run dev -- --host 0.0.0.0 &
+        setsid npm run dev -- --host 0.0.0.0 --strictPort &
         vite_pid=$!
         cleanup() {
-          kill "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid" 2>/dev/null || true
-          wait "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid" 2>/dev/null || true
+          kill -TERM -- "-$server_pid" "-$queue_pid" "-$vite_pid" 2>/dev/null || true
+          wait "$server_pid" "$queue_pid" "$vite_pid" 2>/dev/null || true
         }
         trap cleanup EXIT INT TERM
-        wait -n "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid"
+        wait -n "$server_pid" "$queue_pid" "$vite_pid"
       ready: |
         curl -fsS http://localhost:8000 >/dev/null
         curl -fsS http://localhost:5173/@vite/client >/dev/null
