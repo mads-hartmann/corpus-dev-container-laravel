@@ -44,12 +44,20 @@ services:
         ona environment port open 8000 --admission creator_only --name "Laravel development server"
         ona environment port open 5173 --admission creator_only --name "Laravel development server"
         export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$(ona environment port get 5173 -f URL | cut -c 9-)"
-        npx concurrently -c "#93c5fd,#c4b5fd,#fb7185,#fdba74" \
-          "php artisan serve --host=0.0.0.0 --port=8000" \
-          "php artisan queue:listen --tries=1 --timeout=0" \
-          "php artisan pail --timeout=0" \
-          "npm run dev -- --host 0.0.0.0" \
-          --names=server,queue,logs,vite --kill-others
+        php artisan serve --host=0.0.0.0 --port=8000 &
+        server_pid=$!
+        php artisan queue:listen --tries=1 --timeout=0 &
+        queue_pid=$!
+        php artisan pail --timeout=0 &
+        logs_pid=$!
+        npm run dev -- --host 0.0.0.0 &
+        vite_pid=$!
+        cleanup() {
+          kill "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid" 2>/dev/null || true
+          wait "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid" 2>/dev/null || true
+        }
+        trap cleanup EXIT INT TERM
+        wait -n "$server_pid" "$queue_pid" "$logs_pid" "$vite_pid"
       ready: |
         curl -fsS http://localhost:8000 >/dev/null
         curl -fsS http://localhost:5173/@vite/client >/dev/null
