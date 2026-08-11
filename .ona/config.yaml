@@ -1,0 +1,50 @@
+tasks:
+  installDependencies:
+    name: Install dependencies
+    description: Install PHP and frontend dependencies and prepare the local Laravel database.
+    command: |
+      composer install --no-interaction --prefer-dist
+      test -f .env || cp .env.example .env
+      php artisan key:generate --force
+      touch database/database.sqlite
+      php artisan migrate --force
+      npm install --ignore-scripts --no-audit --no-fund --no-package-lock
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  buildFrontend:
+    name: Build frontend
+    description: Build the Vite frontend assets for Laravel.
+    command: npm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDependencies
+
+services:
+  laravel:
+    name: Laravel
+    description: Run the Laravel development server.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000
+
+  vite:
+    name: Vite
+    description: Run the Vite development server for frontend hot reloads.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 5173 --admission creator_only --name "Vite"
+        exposed_host="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$exposed_host" npm run dev -- --host 0.0.0.0
+      ready: curl -fsS http://localhost:5173/@vite/client >/dev/null
