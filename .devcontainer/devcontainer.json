@@ -1,0 +1,7 @@
+{
+  "name": "Laravel",
+  "image": "mcr.microsoft.com/devcontainers/php:1-8.4-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  }
+}
