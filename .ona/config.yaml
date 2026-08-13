@@ -1,0 +1,59 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    description: Install PHP and JavaScript dependencies and initialize the local SQLite database.
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+    prebuildRequiresSuccess: true
+    command: |
+      test -f .env || cp .env.example .env
+      touch database/database.sqlite
+      composer install --no-interaction
+      npm install --ignore-scripts
+      php artisan key:generate --force
+      php artisan migrate --force
+
+  build:
+    name: Build assets
+    description: Compile the Vite frontend assets.
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: npm run build
+
+  test:
+    name: Run tests
+    description: Run the Laravel test suite.
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: php artisan test
+
+services:
+  app:
+    name: Laravel application
+    description: Serve the Laravel application.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel application"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000
+
+  vite:
+    name: Vite development server
+    description: Serve frontend assets with Vite hot module replacement.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 5173 --admission creator_only --name "Vite development server"
+        npm run dev -- --host=0.0.0.0 --port=5173
+      ready: curl -fsS http://localhost:5173/@vite/client
