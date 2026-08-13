@@ -1,0 +1,38 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    description: Install PHP and JavaScript dependencies and initialize the local database.
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+    command: |
+      composer install
+      test -f .env || cp .env.example .env
+      php artisan key:generate
+      mkdir -p database
+      touch database/database.sqlite
+      php artisan migrate --force
+      npm install --ignore-scripts
+
+  build:
+    name: Build frontend assets
+    description: Compile the Vite frontend assets.
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: npm run build
+
+services:
+  app:
+    name: Laravel application
+    description: Run the Laravel development server.
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel application"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000/up >/dev/null
