@@ -1,0 +1,71 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+    prebuildRequiresSuccess: true
+    command: |
+      composer install --no-interaction --prefer-dist
+      npm install --ignore-scripts
+      test -f .env || cp .env.example .env
+      test -f database/database.sqlite || touch database/database.sqlite
+      grep -Eq '^APP_KEY=base64:.+' .env || php artisan key:generate --force
+      php artisan migrate --force
+
+  build:
+    name: Build assets
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: npm run build
+
+  test:
+    name: Run tests
+    triggeredBy:
+      - manual
+    dependsOn:
+      - build
+    command: composer test
+
+services:
+  application:
+    name: Laravel application
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel application"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000
+
+  vite:
+    name: Vite development server
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 5173 --admission creator_only --name "Vite development server"
+        export ONA_EXPOSED_HOST="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$ONA_EXPOSED_HOST" npm run dev -- --host 0.0.0.0
+      ready: curl -fsS http://localhost:5173/@vite/client
+
+  queue:
+    name: Laravel queue worker
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: php artisan queue:listen --tries=1 --timeout=0
+
+  logs:
+    name: Laravel log viewer
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: php artisan pail --timeout=0

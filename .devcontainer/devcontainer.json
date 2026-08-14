@@ -1,0 +1,11 @@
+{
+  "name": "Laravel",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node": {
+      "version": "22"
+    }
+  }
+}
