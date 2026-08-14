@@ -1,0 +1,68 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+    prebuildRequiresSuccess: true
+    command: |
+      set -e
+      composer install --no-interaction --prefer-dist
+      npm install --ignore-scripts --no-package-lock
+      test -f .env || cp .env.example .env
+      if ! grep -q '^APP_KEY=base64:' .env; then php artisan key:generate; fi
+      test -f database/database.sqlite || touch database/database.sqlite
+      php artisan migrate --force
+
+  build-assets:
+    name: Build assets
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: npm run build
+
+  test:
+    name: Run tests
+    triggeredBy:
+      - manual
+    dependsOn:
+      - install-dependencies
+    command: composer test
+
+services:
+  application:
+    name: Laravel application
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel application"
+        until test -f vendor/autoload.php && test -f .env; do sleep 1; done
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000
+
+  vite:
+    name: Vite development server
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona environment port open 5173 --admission creator_only --name "Vite development server"
+        until test -x node_modules/.bin/vite; do sleep 1; done
+        export ONA_EXPOSED_HOST="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$ONA_EXPOSED_HOST" npm run dev -- --host 0.0.0.0 --port 5173
+      ready: curl -fsS http://localhost:5173/@vite/client >/dev/null
+
+  queue:
+    name: Queue worker
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+    commands:
+      start: |
+        until test -f vendor/autoload.php && test -f .env; do sleep 1; done
+        php artisan queue:listen --tries=1 --timeout=0
