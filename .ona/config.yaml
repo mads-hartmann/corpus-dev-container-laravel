@@ -1,0 +1,54 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    command: |
+      composer install --no-interaction
+      npm install --ignore-scripts
+      test -f .env || cp .env.example .env
+      test -f database/database.sqlite || touch database/database.sqlite
+      grep -q '^APP_KEY=base64:' .env || php artisan key:generate --ansi
+      php artisan migrate --force --ansi
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+  build-assets:
+    name: Build assets
+    command: npm run build
+    dependsOn:
+      - install-dependencies
+    triggeredBy:
+      - manual
+  tests:
+    name: Run tests
+    command: composer test
+    dependsOn:
+      - install-dependencies
+    triggeredBy:
+      - manual
+
+services:
+  laravel:
+    name: Laravel server
+    commands:
+      start: |
+        until test -f vendor/autoload.php && test -f .env; do sleep 1; done
+        ona environment port open 8000 --admission creator_only --name "Laravel server"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000 >/dev/null
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+  vite:
+    name: Vite server
+    commands:
+      start: |
+        until test -d node_modules; do sleep 1; done
+        ona environment port open 5173 --admission creator_only --name "Vite server"
+        export ONA_EXPOSED_HOST="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$ONA_EXPOSED_HOST"
+        npm run dev -- --host 0.0.0.0 --port 5173
+      ready: curl -fsS http://localhost:5173/@vite/client >/dev/null
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
