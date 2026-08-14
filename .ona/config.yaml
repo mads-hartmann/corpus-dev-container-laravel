@@ -1,0 +1,46 @@
+tasks:
+  install-dependencies:
+    name: Install dependencies
+    command: |
+      composer install --no-interaction
+      test -f .env || cp .env.example .env
+      grep -q '^APP_KEY=base64:' .env || php artisan key:generate --no-interaction
+      touch database/database.sqlite
+      php artisan migrate --force --no-interaction
+      npm install --ignore-scripts
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  build-assets:
+    name: Build assets
+    command: npm run build
+    dependsOn:
+      - install-dependencies
+    triggeredBy:
+      - manual
+
+services:
+  laravel-server:
+    name: Laravel development server
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel development server"
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
+
+  vite-server:
+    name: Vite development server
+    commands:
+      start: |
+        ona environment port open 5173 --admission creator_only --name "Vite development server"
+        export ONA_EXPOSED_HOST="$(ona environment port get 5173 -f URL | cut -c 9-)"
+        __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$ONA_EXPOSED_HOST" npm run dev -- --host 0.0.0.0 --port 5173
+      ready: curl -fsS http://localhost:5173/@vite/client
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
