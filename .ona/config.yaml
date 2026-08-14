@@ -1,0 +1,47 @@
+tasks:
+  install:
+    name: Install dependencies
+    command: |
+      composer install
+      if [ ! -f .env ]; then cp .env.example .env; fi
+      php artisan key:generate --force
+      touch database/database.sqlite
+      php artisan migrate --force
+      npm install --ignore-scripts
+    triggeredBy:
+      - manual
+      - postDevcontainerStart
+      - prebuild
+
+  build:
+    name: Build assets
+    command: npm run build
+    dependsOn:
+      - install
+    triggeredBy:
+      - manual
+
+  test:
+    name: Run tests
+    command: composer test
+    dependsOn:
+      - install
+    triggeredBy:
+      - manual
+
+services:
+  app:
+    name: Laravel application
+    description: Laravel development server
+    commands:
+      start: |
+        ona environment port open 8000 --admission creator_only --name "Laravel application" --protocol http
+        export ONA_EXPOSED_HOST="$(ona environment port get 8000 -f URL | cut -c 9-)"
+        export APP_URL="https://${ONA_EXPOSED_HOST}"
+        if grep -q '^APP_URL=' .env; then sed -i "s#^APP_URL=.*#APP_URL=${APP_URL}#" .env; else printf '\nAPP_URL=%s\n' "${APP_URL}" >> .env; fi
+        if grep -q '^ASSET_URL=' .env; then sed -i "s#^ASSET_URL=.*#ASSET_URL=${APP_URL}#" .env; else printf 'ASSET_URL=%s\n' "${APP_URL}" >> .env; fi
+        php artisan serve --host=0.0.0.0 --port=8000
+      ready: curl -fsS http://localhost:8000/
+    triggeredBy:
+      - manual
+      - postEnvironmentStart
